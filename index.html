@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Geometry Explorer - Home</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            overflow-x: hidden;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Optimized 3D Renderer
+        const ShapeRenderer = ({ type, color, isActive, isBig = false }) => {
+            const mountRef = useRef(null);
+
+            useEffect(() => {
+                const THREE = window.THREE;
+                if (!mountRef.current || !THREE) return;
+                
+                let width = mountRef.current.clientWidth;
+                let height = mountRef.current.clientHeight;
+                
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(isBig ? 45 : 50, width / height, 0.1, 1000);
+                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                
+                renderer.setSize(width, height);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                mountRef.current.appendChild(renderer.domElement);
+
+                const light = new THREE.DirectionalLight(0xffffff, 1.2);
+                light.position.set(5, 5, 5);
+                scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+                scene.add(light);
+
+                let mesh;
+                const material = new THREE.MeshStandardMaterial({ 
+                    color: color,
+                    metalness: 0.2,
+                    roughness: 0.4,
+                    flatShading: type === 'Pyramid'
+                });
+
+                const scale = isBig ? 1.8 : 0.6;
+
+                switch(type) {
+                    case 'Cuboid': mesh = new THREE.Mesh(new THREE.BoxGeometry(1.4 * scale, 0.7 * scale, 0.9 * scale), material); break;
+                    case 'Cube': mesh = new THREE.Mesh(new THREE.BoxGeometry(scale, scale, scale), material); break;
+                    case 'Pyramid': mesh = new THREE.Mesh(new THREE.ConeGeometry(0.8 * scale, 1.2 * scale, 4), material); break;
+                    case 'Cylinder': mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.6 * scale, 0.6 * scale, 1.2 * scale, 32), material); break;
+                    case 'Sphere': mesh = new THREE.Mesh(new THREE.SphereGeometry(0.8 * scale, 32, 32), material); break;
+                    default: mesh = new THREE.Mesh(new THREE.BoxGeometry(scale, scale, scale), material);
+                }
+
+                scene.add(mesh);
+                camera.position.z = isBig ? 6 : 3;
+
+                let frameId;
+                const animate = () => {
+                    frameId = requestAnimationFrame(animate);
+                    mesh.rotation.y += (isActive || isBig) ? 0.02 : 0.005;
+                    mesh.rotation.x += (isActive || isBig) ? 0.01 : 0;
+                    renderer.render(scene, camera);
+                };
+                animate();
+
+                const handleResize = () => {
+                    if (!mountRef.current) return;
+                    width = mountRef.current.clientWidth;
+                    height = mountRef.current.clientHeight;
+                    camera.aspect = width / height;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(width, height);
+                };
+
+                window.addEventListener('resize', handleResize);
+
+                return () => {
+                    cancelAnimationFrame(frameId);
+                    window.removeEventListener('resize', handleResize);
+                    if (mountRef.current) {
+                        while(mountRef.current.firstChild) mountRef.current.removeChild(mountRef.current.firstChild);
+                    }
+                };
+            }, [type, isActive, color, isBig]);
+
+            return <div ref={mountRef} className="w-full h-full flex items-center justify-center" />;
+        };
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState(0);
+
+            const tabs = [
+                { id: 0, label: 'Cuboid', color: '#ef4444', colorClass: 'bg-red-500', link: 'cuboid.html' },
+                { id: 1, label: 'Cube', color: '#3b82f6', colorClass: 'bg-blue-500', link: 'cube.html' },
+                { id: 2, label: 'Pyramid', color: '#f59e0b', colorClass: 'bg-amber-500', link: 'pyramid.html' },
+                { id: 3, label: 'Cylinder', color: '#10b981', colorClass: 'bg-emerald-500', link: 'cylinder.html' },
+                { id: 4, label: 'Sphere', color: '#a855f7', colorClass: 'bg-purple-500', link: 'sphere.html' },
+            ];
+
+            const currentTab = tabs[activeTab];
+
+            const handleNavigate = () => {
+                // Ippo ithu antha specific shape-in link-ukku pogum (eg: cylinder.html)
+                window.location.href = currentTab.link;
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8">
+                    <div className="w-full max-w-5xl">
+                        {/* Tab Navigation */}
+                        <div className="flex overflow-x-auto no-scrollbar pb-4 md:pb-0 md:justify-between items-center bg-white p-3 md:p-4 rounded-3xl md:rounded-[2.5rem] shadow-xl border border-white mb-6 md:mb-12 gap-3 md:gap-4">
+                            {tabs.map((tab) => {
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`
+                                            flex-shrink-0 min-w-[80px] md:flex-1 flex flex-col items-center justify-center py-3 md:py-4 rounded-2xl md:rounded-3xl transition-all duration-300
+                                            ${isActive ? `${tab.colorClass} text-white shadow-lg md:-translate-y-6 md:scale-110` : 'text-slate-400 hover:bg-slate-50'}
+                                        `}
+                                    >
+                                        <div className="w-12 h-12 md:w-14 md:h-14">
+                                            <ShapeRenderer type={tab.label} color={isActive ? '#ffffff' : tab.color} isActive={isActive} />
+                                        </div>
+                                        <span className="text-[9px] md:text-[10px] font-extrabold uppercase tracking-tighter mt-1">
+                                            {tab.label}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Main Interaction Card */}
+                        <div className="bg-white rounded-[2.5rem] md:rounded-[3.5rem] p-6 md:p-12 shadow-2xl border border-white flex flex-col md:grid md:grid-cols-2 gap-8 md:gap-12 items-center relative overflow-hidden">
+                            <div 
+                                className="absolute -top-24 -right-24 w-64 h-64 opacity-[0.08] blur-[80px] rounded-full pointer-events-none" 
+                                style={{ backgroundColor: currentTab.color }}
+                            />
+
+                            <div className="order-2 md:order-1 relative z-10 text-center md:text-left">
+                                <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-white mb-4 md:mb-6 ${currentTab.colorClass}`}>
+                                    3D Geometry
+                                </span>
+                                <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-4 tracking-tight leading-none">
+                                    {currentTab.label}
+                                </h1>
+                                <p className="text-slate-500 text-sm md:text-lg leading-relaxed mb-6 md:mb-8 mx-auto md:mx-0 max-w-sm">
+                                    Intha shape pathi innum aalamaaga therinthu kolla keela irukkira button-ai click panni <b>{currentTab.link}</b> page-ukku ponga.
+                                </p>
+                                <button 
+                                    onClick={handleNavigate}
+                                    className={`w-full md:w-auto px-10 py-4 rounded-2xl text-white font-bold shadow-lg hover:shadow-2xl hover:scale-[1.02] active:scale-95 transition-all ${currentTab.colorClass}`}
+                                >
+                                    Explore {currentTab.label} →
+                                </button>
+                            </div>
+
+                            <div className="order-1 md:order-2 w-full aspect-square md:aspect-auto bg-slate-50 rounded-[2rem] md:rounded-[3rem] p-4 shadow-inner border border-slate-100 flex items-center justify-center min-h-[280px] md:h-[400px]">
+                                <ShapeRenderer type={currentTab.label} color={currentTab.color} isBig={true} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
